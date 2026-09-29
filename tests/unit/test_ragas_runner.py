@@ -165,3 +165,68 @@ async def test_run_pipeline_failure_exit_code(tmp_path):
 
         assert exit_code == 1
         assert scorecard["passed"] is False
+
+
+@pytest.mark.asyncio
+async def test_client_retries_on_502_503():
+    client = WardenAPIClient(base_url="http://localhost:8080")
+
+    mock_503 = AsyncMock()
+    mock_503.status_code = 503
+    mock_503.raise_for_status = lambda: (_ for _ in ()).throw(Exception("503 Service Unavailable"))
+
+    mock_200 = AsyncMock()
+    mock_200.status_code = 200
+    mock_200.json = lambda: {
+        "query": "Retry query?",
+        "caller_role": "Employee",
+        "answer": "Answer post retry",
+        "citations": [],
+        "metrics": {},
+    }
+    mock_200.raise_for_status = lambda: None
+
+    with patch("httpx.AsyncClient.post", side_effect=[mock_503, mock_200]):
+        resp = await client.query("Retry query?", RoleEnum.EMPLOYEE)
+        assert resp.answer == "Answer post retry"
+
+
+@pytest.mark.asyncio
+async def test_runner_circuit_breaker_aborts_on_5_consecutive_failures(tmp_path):
+    items = [
+        GoldenEvalItem(
+            eval_id=f"EVAL-{i:03d}",
+            query=f"Query {i}?",
+            caller_role=RoleEnum.EMPLOYEE,
+            ground_truth_answer=f"Answer {i}",
+            ground_truth_doc_ids=["DOC-HR-1"],
+            ground_truth_chunks=[1],
+        )
+        for i in range(1, 10)
+    ]
+    output_dir = tmp_path / "cb_reports"
+
+    with patch("warden_eval.runner.load_dataset", return_value=items), \
+         patch("warden_eval.client.WardenAPIClient.query", side_effect=Exception("Connection refused")):
+
+        with pytest.raises(ConnectionError, match="Circuit breaker triggered: 5 consecutive queries failed"):
+            await run_evaluation_pipeline(
+                dataset_path="mock.json",
+                base_url="http://localhost:8080",
+                output_dir=output_dir,
+                enforce_gates=True,
+            )
+
+
+def test_runner_cli_boolean_optional_gate_flag(monkeypatch, tmp_path):
+    from warden_eval.runner import build_parser
+    parser = build_parser()
+
+    # Default is True
+    args = parser.parse_args([])
+    assert args.enforce_gates is True
+
+    # --no-enforce-gates sets False
+    args_no = parser.parse_args(["--no-enforce-gates"])
+    assert args_no.enforce_gates is False
+

@@ -104,3 +104,21 @@ def test_bakeoff_harness_execution():
     assert "Pipeline A (Baseline)" in results.markdown_report
     assert "Pipeline B (Production Standard)" in results.markdown_report
     assert "Pipeline C (Comparative Benchmark)" in results.markdown_report
+
+
+def test_bakeoff_cli_main(tmp_path, monkeypatch):
+    from warden_eval.bakeoff import main
+    report_file = tmp_path / "bakeoff_report.md"
+
+    test_args = [
+        "bakeoff",
+        "--dataset", "eval/datasets/eval_golden_50.json",
+        "--report-path", str(report_file),
+    ]
+    monkeypatch.setattr("sys.argv", test_args)
+    main()
+
+    assert report_file.exists()
+    content = report_file.read_text(encoding="utf-8")
+    assert "3-Way Comparative Reranker Bake-Off Scorecard" in content
+

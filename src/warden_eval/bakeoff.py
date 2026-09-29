@@ -1,11 +1,14 @@
+import argparse
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 from pydantic import BaseModel, Field
 
 from warden_eval.metrics import calculate_hit_at_k, calculate_mrr_at_k, calculate_ndcg_at_k
+from warden_eval.runner import load_dataset
 from warden_eval.schema import GoldenEvalItem
 
 
@@ -170,3 +173,32 @@ class BakeOffHarness:
         ])
 
         return "\n".join(lines)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Warden 3-Way Comparative Reranker Bake-Off Runner")
+    parser.add_argument("--dataset", default="eval/datasets/eval_golden_50.json", help="Path to golden dataset")
+    parser.add_argument("--report-path", default="eval/reports/bakeoff_scorecard.md", help="Output report path")
+    return parser
+
+
+def main():
+    parser = build_parser()
+    args = parser.parse_args()
+
+    items = load_dataset(args.dataset)
+    harness = BakeOffHarness()
+    results = harness.run(items)
+
+    out_file = Path(args.report_path)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
+        f.write(results.markdown_report)
+
+    print(results.markdown_report)
+    print(f"\n[warden-eval] Bake-off scorecard saved to {out_file}")
+
+
+if __name__ == "__main__":
+    main()
+

@@ -35,11 +35,13 @@ async def run_evaluation_pipeline(
     evaluator = RagasGateEvaluator()
 
     records = []
+    consecutive_failures = 0
     print(f"\n[warden-eval] Starting evaluation over {len(items)} queries against {base_url}...")
 
     for i, item in enumerate(items, 1):
         try:
             resp = await client.query(item.query, item.caller_role)
+            consecutive_failures = 0
             records.append({
                 "eval_id": item.eval_id,
                 "query": item.query,
@@ -55,6 +57,10 @@ async def run_evaluation_pipeline(
             if delay_ms > 0:
                 await asyncio.sleep(delay_ms / 1000.0)
         except Exception as e:
+            consecutive_failures += 1
+            if consecutive_failures >= 5:
+                raise ConnectionError("Circuit breaker triggered: 5 consecutive queries failed") from e
+
             print(f"[warden-eval] Query {item.eval_id} failed: {e}")
             records.append({
                 "eval_id": item.eval_id,
@@ -96,13 +102,22 @@ async def run_evaluation_pipeline(
     return exit_code, scorecard_data
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Warden Automated RAGAS Quality Gate Runner")
     parser.add_argument("--dataset", default="eval/datasets/eval_golden_50.json", help="Path to golden dataset")
     parser.add_argument("--base-url", default="http://localhost:8080", help="API Gateway URL")
     parser.add_argument("--output-dir", default="eval/reports", help="Directory for scorecard artifacts")
-    parser.add_argument("--enforce-gates", action="store_true", default=True, help="Exit 1 on quality regression")
+    parser.add_argument(
+        "--enforce-gates",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Exit 1 on quality regression",
+    )
+    return parser
 
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
     exit_code, _ = asyncio.run(
         run_evaluation_pipeline(
