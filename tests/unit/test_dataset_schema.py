@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-import pytest
+
 from warden_eval.schema import GoldenEvalDataset, GoldenEvalItem, RoleEnum
 
 
