@@ -1,0 +1,419 @@
+import json
+from pathlib import Path
+
+queries = [
+    # 20 Employee Queries (EVAL-001 to EVAL-020)
+    {
+        "eval_id": "EVAL-001",
+        "query": "How many days of bereavement leave am I entitled to for an immediate family member?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Full-time employees are eligible for up to 5 consecutive paid days off for the death of an immediate family member.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [2, 3]
+    },
+    {
+        "eval_id": "EVAL-002",
+        "query": "How many days of annual paid time off (PTO) do full-time employees accrue?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Full-time employees accrue 18 days of paid time off (PTO) annually, accrued on a pro-rata bi-weekly schedule.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [0, 1]
+    },
+    {
+        "eval_id": "EVAL-003",
+        "query": "What is the maximum tuition reimbursement benefit per calendar year?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Full-time employees can receive up to $5,250 per calendar year in tuition reimbursement for accredited degree programs.",
+        "ground_truth_doc_ids": ["DOC-HR-EDUCATION-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-004",
+        "query": "How many weeks of fully paid parental leave are provided to new parents?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Full-time employees with at least 12 months of tenure are eligible for 12 weeks of fully paid parental leave.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [4, 5]
+    },
+    {
+        "eval_id": "EVAL-005",
+        "query": "What is the monthly stipend provided for remote work home internet and mobile data?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Designated remote employees receive a tax-exempt monthly connectivity stipend of $75 on payroll.",
+        "ground_truth_doc_ids": ["DOC-HR-REMOTE-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-006",
+        "query": "What is the annual one-time home office equipment reimbursement allowance?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Eligible remote workers receive a one-time setup reimbursement allowance up to $500 for ergonomic office furniture and accessories.",
+        "ground_truth_doc_ids": ["DOC-HR-REMOTE-2026"],
+        "ground_truth_chunks": [2, 3]
+    },
+    {
+        "eval_id": "EVAL-007",
+        "query": "What is the maximum matching percentage for the company 401(k) retirement plan?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "The company matches 100% of employee elective deferrals up to the first 4% of eligible base compensation.",
+        "ground_truth_doc_ids": ["DOC-HR-BENEFITS-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-008",
+        "query": "When does employer health insurance coverage become effective for newly hired employees?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Health, dental, and vision insurance coverage takes effect on the first calendar day of the month following the hire date.",
+        "ground_truth_doc_ids": ["DOC-HR-BENEFITS-2026"],
+        "ground_truth_chunks": [0]
+    },
+    {
+        "eval_id": "EVAL-009",
+        "query": "How many hours of paid volunteer time off (VTO) can an employee take each calendar year?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees in good standing are entitled to 16 hours (2 business days) of paid volunteer time off annually.",
+        "ground_truth_doc_ids": ["DOC-HR-COMMUNITY-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-010",
+        "query": "What is the policy for jury duty pay and documentation requirements?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "The company provides up to 10 days of fully paid jury duty leave upon submitting official court summons verification.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [6]
+    },
+    {
+        "eval_id": "EVAL-011",
+        "query": "What are the core business working hours during which employees must be available?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Core operational collaboration hours are designated between 10:00 AM and 3:00 PM local time for each respective timezone.",
+        "ground_truth_doc_ids": ["DOC-HR-WORKHOURS-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-012",
+        "query": "How many days of unused PTO can be carried over into the next calendar year?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "A maximum of 5 unused accrued PTO days may be carried over into the subsequent calendar year, expiring on March 31.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-013",
+        "query": "What is the employee referral bonus amount for successful engineering hires?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees receive a referral bonus of $3,000 for successful engineering hires, payable after 90 days of tenure.",
+        "ground_truth_doc_ids": ["DOC-HR-RECRUITING-2026"],
+        "ground_truth_chunks": [2]
+    },
+    {
+        "eval_id": "EVAL-014",
+        "query": "What is the procedure for reporting workplace harassment or discrimination confidentially?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees may submit confidential reports via the anonymous ethics hotline (1-800-555-ETHX) or directly to the People Team.",
+        "ground_truth_doc_ids": ["DOC-HR-CONDUCT-2026"],
+        "ground_truth_chunks": [3, 4]
+    },
+    {
+        "eval_id": "EVAL-015",
+        "query": "What wellness benefits or fitness gym reimbursements are provided to employees?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "The wellness subsidy covers up to $50 per month ($600 annually) for gym memberships, fitness classes, or athletic equipment.",
+        "ground_truth_doc_ids": ["DOC-HR-BENEFITS-2026"],
+        "ground_truth_chunks": [4]
+    },
+    {
+        "eval_id": "EVAL-016",
+        "query": "What is the notice period required for voluntary employee resignation?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees are requested to provide at least 2 weeks (10 business days) written notice to their manager and HR.",
+        "ground_truth_doc_ids": ["DOC-HR-SEPARATION-2026"],
+        "ground_truth_chunks": [0]
+    },
+    {
+        "eval_id": "EVAL-017",
+        "query": "What is the company policy regarding outside freelance or consulting employment?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Outside employment is permissible only if it does not conflict with company business hours, proprietary IP, or compete with company services, and must be disclosed.",
+        "ground_truth_doc_ids": ["DOC-HR-CONDUCT-2026"],
+        "ground_truth_chunks": [5]
+    },
+    {
+        "eval_id": "EVAL-018",
+        "query": "What is the commuter transit subsidy provided for public transportation?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees commuting to regional offices are eligible for a pre-tax transit pass subsidy up to $100 per month.",
+        "ground_truth_doc_ids": ["DOC-HR-BENEFITS-2026"],
+        "ground_truth_chunks": [5]
+    },
+    {
+        "eval_id": "EVAL-019",
+        "query": "What happens to employee benefits during an approved unpaid leave of absence?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Employees may continue medical and life insurance benefits during unpaid leave for up to 90 days by paying the full group premium rate.",
+        "ground_truth_doc_ids": ["DOC-HR-LEAVE-2026"],
+        "ground_truth_chunks": [7]
+    },
+    {
+        "eval_id": "EVAL-020",
+        "query": "How often are performance reviews and feedback cycles conducted for employees?",
+        "caller_role": "Employee",
+        "ground_truth_answer": "Formal performance evaluations occur bi-annually in June and December, supplemented by monthly 1-on-1 check-ins.",
+        "ground_truth_doc_ids": ["DOC-HR-PERFORMANCE-2026"],
+        "ground_truth_chunks": [0]
+    },
+
+    # 15 Manager Queries (EVAL-021 to EVAL-035)
+    {
+        "eval_id": "EVAL-021",
+        "query": "What is the formal duration and review checkpoint cadence for a Performance Improvement Plan (PIP)?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "A standard PIP spans 60 calendar days with mandatory formal review checkpoints at day 15, day 30, and day 45.",
+        "ground_truth_doc_ids": ["DOC-MGR-PERFORMANCE-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-022",
+        "query": "What are the per-diem meal expense limits for domestic business travel?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "The maximum domestic travel per-diem meal allowance is $75 per day ($15 breakfast, $20 lunch, $40 dinner).",
+        "ground_truth_doc_ids": ["DOC-MGR-TRAVEL-2026"],
+        "ground_truth_chunks": [2, 3]
+    },
+    {
+        "eval_id": "EVAL-023",
+        "query": "What is the manager approval threshold for department equipment purchase requisitions?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Department managers can authorize unbudgeted expenses up to $2,500; purchases exceeding $2,500 require VP approval.",
+        "ground_truth_doc_ids": ["DOC-MGR-FINANCE-2026"],
+        "ground_truth_chunks": [0, 1]
+    },
+    {
+        "eval_id": "EVAL-024",
+        "query": "What structured rubric must managers follow when conducting technical candidate interviews?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Managers must evaluate candidates across four standardized pillars: Technical Competency, System Design, Communication, and Values Alignment on a 1-5 scale.",
+        "ground_truth_doc_ids": ["DOC-MGR-HIRING-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-025",
+        "query": "What are the guidelines and percentage caps for annual merit salary increase recommendations?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Managers are allocated a 3.5% aggregate team merit pool, with individual increases constrained between 0% and 7% based on rating.",
+        "ground_truth_doc_ids": ["DOC-MGR-COMP-2026"],
+        "ground_truth_chunks": [2, 3]
+    },
+    {
+        "eval_id": "EVAL-026",
+        "query": "What steps must a manager take when an employee requests Family and Medical Leave (FMLA)?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "The manager must notify HR Operations within 2 business days and direct the employee to the third-party leave administrator without asking medical details.",
+        "ground_truth_doc_ids": ["DOC-MGR-LEAVE-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-027",
+        "query": "What is the procedure for initiating an off-cycle promotion or title change for an employee?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Off-cycle promotions require a written business case submission to the Department VP and People Business Partner including tenure and metric impact.",
+        "ground_truth_doc_ids": ["DOC-MGR-PERFORMANCE-2026"],
+        "ground_truth_chunks": [4]
+    },
+    {
+        "eval_id": "EVAL-028",
+        "query": "What is the maximum hotel nightly rate allowed under the corporate travel policy in Tier 1 cities?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Hotel bookings in Tier 1 cities (e.g. NYC, SF) are capped at $300 per night excluding taxes; other locations are capped at $200 per night.",
+        "ground_truth_doc_ids": ["DOC-MGR-TRAVEL-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-029",
+        "query": "How should a manager handle sudden unexcused employee absences exceeding 3 consecutive days?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Unexcused absences of 3 consecutive business days are classified as job abandonment; manager must alert HR immediately for formal outreach.",
+        "ground_truth_doc_ids": ["DOC-MGR-DISCIPLINE-2026"],
+        "ground_truth_chunks": [0]
+    },
+    {
+        "eval_id": "EVAL-030",
+        "query": "What budget is allocated per employee for annual departmental team building events?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Managers may spend up to $150 per team member per quarter for team building, offsites, or celebratory lunches.",
+        "ground_truth_doc_ids": ["DOC-MGR-FINANCE-2026"],
+        "ground_truth_chunks": [3]
+    },
+    {
+        "eval_id": "EVAL-031",
+        "query": "What documentation is required before delivering a formal written reprimand to a team member?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "A written reprimand requires documented prior verbal coaching dates, concrete policy breach instances, and HRBP pre-approval.",
+        "ground_truth_doc_ids": ["DOC-MGR-DISCIPLINE-2026"],
+        "ground_truth_chunks": [2]
+    },
+    {
+        "eval_id": "EVAL-032",
+        "query": "What is the manager protocol for managing remote team members across differing international timezones?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Managers must establish minimum 3 overlapping hours daily, rotate meeting times equitably, and record team-wide announcements.",
+        "ground_truth_doc_ids": ["DOC-MGR-REMOTE-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-033",
+        "query": "What is the probationary period duration for newly hired or transferred team members?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "All new hires and internal transfers are subject to a 90-day introductory evaluation period with a 45-day progress review.",
+        "ground_truth_doc_ids": ["DOC-MGR-HIRING-2026"],
+        "ground_truth_chunks": [4]
+    },
+    {
+        "eval_id": "EVAL-034",
+        "query": "How should managers document employee spot bonuses and recognition awards?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Spot bonuses between $100 and $1,000 may be nominated through the HR portal with a concise narrative of exceptional contribution.",
+        "ground_truth_doc_ids": ["DOC-MGR-COMP-2026"],
+        "ground_truth_chunks": [4]
+    },
+    {
+        "eval_id": "EVAL-035",
+        "query": "What are the rules regarding manager approval of employee overtime hours?",
+        "caller_role": "Manager",
+        "ground_truth_answer": "Non-exempt overtime must be pre-approved in writing by the direct manager prior to the shift; unauthorized overtime is compensated but subject to counseling.",
+        "ground_truth_doc_ids": ["DOC-MGR-WORKHOURS-2026"],
+        "ground_truth_chunks": [2]
+    },
+
+    # 15 HR-Admin Queries (EVAL-036 to EVAL-050)
+    {
+        "eval_id": "EVAL-036",
+        "query": "What is the executive severance pay formula and health benefit continuation period upon involuntary termination without cause?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Vice Presidents and C-suite executives receive 6 months base salary plus 1 month per year of service, and 12 months COBRA health subsidy.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-SEVERANCE-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-037",
+        "query": "What are the equity acceleration vesting triggers under the executive Change in Control (double-trigger) clause?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Double-trigger acceleration vests 100% of unvested equity options upon corporate acquisition followed by involuntary termination within 12 months.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-EQUITY-2026"],
+        "ground_truth_chunks": [3, 4]
+    },
+    {
+        "eval_id": "EVAL-038",
+        "query": "What are the mandatory retention periods for employee personnel files, I-9 verification forms, and payroll records?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Personnel records must be retained for 7 years post-termination; I-9 forms for 3 years after hire date or 1 year after termination (whichever is later); payroll records for 7 years.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-COMPLIANCE-2026"],
+        "ground_truth_chunks": [0, 1]
+    },
+    {
+        "eval_id": "EVAL-039",
+        "query": "What is the formal escalation and legal reporting protocol when an active Title VII workplace discrimination claim is filed?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "HR General Counsel must be notified within 24 hours, an external independent investigator retained within 5 business days, and all litigation hold notices issued.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-LEGAL-2026"],
+        "ground_truth_chunks": [2, 3]
+    },
+    {
+        "eval_id": "EVAL-040",
+        "query": "What are the director-level stock option grant bands for newly onboarded senior executives?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Director level initial equity ranges from 25,000 to 50,000 ISO shares vesting over 4 years with a 1-year cliff and monthly thereafter.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-EQUITY-2026"],
+        "ground_truth_chunks": [0, 1]
+    },
+    {
+        "eval_id": "EVAL-041",
+        "query": "What is the legally mandated procedure for involuntary reduction in force (RIF) under the federal WARN Act?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "The company must provide at least 60 days advance written notice to affected employees and state dislocated worker units for plant closings or mass layoffs affecting 50+ workers.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-COMPLIANCE-2026"],
+        "ground_truth_chunks": [4, 5]
+    },
+    {
+        "eval_id": "EVAL-042",
+        "query": "What is the standard severance payout schedule for non-executive employees impacted by organizational restructuring?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Standard severance provides 2 weeks base pay per full year of completed service (minimum 4 weeks, maximum 26 weeks) with subsidized healthcare continuation.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-SEVERANCE-2026"],
+        "ground_truth_chunks": [0]
+    },
+    {
+        "eval_id": "EVAL-043",
+        "query": "What is the protocol for securing corporate digital assets and revoking cloud credentials during high-risk employee terminations?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "HR-Admin coordinates with IT SecOps to revoke Okta/Entra ID SSO tokens, invalidate API keys, and freeze laptop access exactly 15 minutes before the exit notification.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-SECURITY-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-044",
+        "query": "What are the corporate governance limits on confidential legal settlement payout authorizations without Board of Directors approval?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Legal dispute settlements up to $100,000 may be signed by the Chief Legal Officer and VP of HR; settlements exceeding $100,000 require Audit Committee Board approval.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-LEGAL-2026"],
+        "ground_truth_chunks": [5]
+    },
+    {
+        "eval_id": "EVAL-045",
+        "query": "What is the annual EEO-1 reporting filing schedule and demographic survey protocol for regulatory compliance?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "EEO-1 Component 1 demographic data must be compiled using October/December payroll snapshots and submitted to the EEOC portal annually prior to the published federal deadline.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-COMPLIANCE-2026"],
+        "ground_truth_chunks": [2]
+    },
+    {
+        "eval_id": "EVAL-046",
+        "query": "What are the rules and restrictive covenants governing non-compete agreements for executive personnel?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Executive non-compete agreements are restricted to 12 months post-separation within defined geographic markets, subject to applicable state and federal FTC regulations.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-LEGAL-2026"],
+        "ground_truth_chunks": [1]
+    },
+    {
+        "eval_id": "EVAL-047",
+        "query": "What is the protocol for managing whistleblower reports regarding executive accounting fraud or insider trading?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Whistleblower reports alleging financial impropriety bypass executive leadership and route directly to the Chairperson of the Board Audit Committee and external counsel.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-LEGAL-2026"],
+        "ground_truth_chunks": [4]
+    },
+    {
+        "eval_id": "EVAL-048",
+        "query": "What are the requirements for conducting annual corporate compensation equity and gender pay parity audits?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "HR Operations and external compensation consultants conduct an annual multivariate regression audit to remediate unexplained wage disparities exceeding 2% across comparable job grades.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-COMP-2026"],
+        "ground_truth_chunks": [1, 2]
+    },
+    {
+        "eval_id": "EVAL-049",
+        "query": "What is the protocol for handling Department of Labor (DOL) or OSHA unannounced audits and site inspections?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "Reception must notify HR-Admin and Legal immediately, request inspector credentials, place them in a conference room, and await designated HR leadership representation.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-COMPLIANCE-2026"],
+        "ground_truth_chunks": [6]
+    },
+    {
+        "eval_id": "EVAL-050",
+        "query": "What is the off-boarding protocol for reclaiming executive equity certificates and executing NDA reaffirmations upon departure?",
+        "caller_role": "HR-Admin",
+        "ground_truth_answer": "HR-Admin must obtain signed separation agreements, verify post-termination stock option exercise windows (standard 90 days), and execute trade secret NDA reaffirmations.",
+        "ground_truth_doc_ids": ["DOC-ADMIN-SEVERANCE-2026"],
+        "ground_truth_chunks": [3]
+    }
+]
+
+out_dir = Path("eval/datasets")
+out_dir.mkdir(parents=True, exist_ok=True)
+out_file = out_dir / "eval_golden_50.json"
+
+with open(out_file, "w", encoding="utf-8") as f:
+    json.dump(queries, f, indent=2)
+
+print(f"Generated {len(queries)} items to {out_file}")
